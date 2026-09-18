@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: zipmart
+      POSTGRES_PASSWORD: zipmart
+      POSTGRES_DB: zipmart
+    ports:
+      - '5434:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U zipmart']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6380:6379'
+
+  backend-nest:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: zipmart
+      DB_PASSWORD: zipmart
+      DB_NAME: zipmart
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BACKEND_SPRING_URL: http://backend-spring:8080
+      JWT_ACCESS_SECRET: dev-access-secret
+      JWT_REFRESH_SECRET: dev-refresh-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Uncomment once zipmart-backend-spring exists as a sibling repo checkout:
+  # backend-spring:
+  #   build: ../zipmart-backend-spring
+  #   environment:
+  #     DB_HOST: postgres
+  #     DB_PORT: 5432
+  #     DB_USER: zipmart
+  #     DB_PASSWORD: zipmart
+  #     DB_NAME: zipmart
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   # internal-only: no ports mapped to host
+
+volumes:
+  postgres_data:
