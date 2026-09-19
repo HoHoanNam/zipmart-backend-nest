@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AnalyticsModule } from './analytics/analytics.module.js';
 import { AppController } from './app.controller.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BehaviorsModule } from './behaviors/behaviors.module.js';
@@ -10,6 +11,7 @@ import { CartModule } from './cart/cart.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { RecommendationsModule } from './recommendations/recommendations.module.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { RecommendationsModule } from './recommendations/recommendations.module.
     OrdersModule,
     BehaviorsModule,
     RecommendationsModule,
+    UsersModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
