@@ -71,6 +71,15 @@ export class ProductsService {
     await this.productRepo.remove(product);
   }
 
+  /** Flat list of every image URL across all products — used by the Cloudinary cleanup cron. */
+  async findAllImageUrls(): Promise<string[]> {
+    const rows = await this.productRepo
+      .createQueryBuilder('product')
+      .select('product.images', 'images')
+      .getRawMany<{ images: string[] }>();
+    return rows.flatMap((row) => row.images ?? []);
+  }
+
   async findTopSelling(limit: number): Promise<string[]> {
     const rows = await this.productRepo.manager
       .createQueryBuilder()

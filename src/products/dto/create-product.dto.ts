@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   IsArray,
   IsInt,
   IsNumberString,
@@ -27,6 +28,7 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(5)
   @IsUrl({}, { each: true })
   images?: string[];
 

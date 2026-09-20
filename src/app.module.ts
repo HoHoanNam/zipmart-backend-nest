@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AnalyticsModule } from './analytics/analytics.module.js';
@@ -12,6 +13,7 @@ import { CategoriesModule } from './categories/categories.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { RecommendationsModule } from './recommendations/recommendations.module.js';
+import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
@@ -33,6 +35,7 @@ import { UsersModule } from './users/users.module.js';
     ThrottlerModule.forRoot({
       throttlers: [{ ttl: 60000, limit: 100 }],
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     CategoriesModule,
     ProductsModule,
@@ -42,6 +45,7 @@ import { UsersModule } from './users/users.module.js';
     RecommendationsModule,
     UsersModule,
     AnalyticsModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
