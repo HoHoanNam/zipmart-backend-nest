@@ -87,10 +87,11 @@ Data ownership: this repo owns and migrates (TypeORM) `users`, `products`,
 Full module skeleton implemented and verified end-to-end against a local
 Postgres/Redis (via Docker) instance: register/login/refresh, RBAC-gated
 product CRUD, cart, checkout → orders, behavior tracking with the event
-weight config from `IMPLEMENTATION_PLAN.md` §4.4, and the recommendations
+weight config from `docs/PROJECT-IMPLEMENTATION-PLAN.md` §4.4 (monorepo
+root), and the recommendations
 proxy with Redis caching + cold-start fallback. Not yet implemented: PostgreSQL
 `tsvector` full-text search on products (currently plain `ILIKE`), refresh
 token revocation/rotation (refresh tokens are stateless JWTs, not stored —
 fine for a bootstrap, revisit before this handles real user accounts), and
 cache invalidation of `rec:{userId}` on purchase events (noted as optional in
-`IMPLEMENTATION_PLAN.md` §10).
+`docs/PROJECT-IMPLEMENTATION-PLAN.md` §10 at the monorepo root).
