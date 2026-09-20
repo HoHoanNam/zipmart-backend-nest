@@ -11,6 +11,23 @@ export class Product {
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId!: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  brand!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  description!: string | null;
+
+  /** URLs only — no upload/storage infra. See IMPLEMENTATION_PLAN.md. */
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  images!: string[];
+
+  @Column({ name: 'weight_grams', type: 'int', nullable: true })
+  weightGrams!: number | null;
+
+  /** Shape depends on the linked category — see src/products/attribute-schemas.ts. */
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  attributes!: Record<string, unknown>;
+
   @Column({ type: 'numeric', precision: 10, scale: 2 })
   price!: string;
 
