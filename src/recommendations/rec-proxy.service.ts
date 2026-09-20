@@ -37,7 +37,11 @@ export class RecProxyService {
   }
 
   async getRecommendations(userId: string, limit: number): Promise<RecommendationResult> {
-    const cacheKey = `rec:${userId}`;
+    // Keyed by limit too — callers on the same page (e.g. the product grid
+    // and the sidebar teaser) request different limits concurrently, and a
+    // shared `rec:{userId}` key would let whichever call lands first in
+    // cache silently truncate the other's result.
+    const cacheKey = `rec:${userId}:${limit}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return JSON.parse(cached) as RecommendationResult;
@@ -54,7 +58,10 @@ export class RecProxyService {
   }
 
   async invalidate(userId: string) {
-    await this.redis.del(`rec:${userId}`);
+    const keys = await this.redis.keys(`rec:${userId}:*`);
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+    }
   }
 
   private async fetchFromSpring(userId: string, limit: number): Promise<RecommendationItem[]> {
