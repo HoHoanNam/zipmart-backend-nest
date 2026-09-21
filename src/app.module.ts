@@ -16,6 +16,7 @@ import { ProductsModule } from './products/products.module.js';
 import { RecommendationsModule } from './recommendations/recommendations.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
+import { WishlistModule } from './wishlist/wishlist.module.js';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module.js';
     CouponsModule,
     ProductsModule,
     CartModule,
+    WishlistModule,
     OrdersModule,
     BehaviorsModule,
     RecommendationsModule,
