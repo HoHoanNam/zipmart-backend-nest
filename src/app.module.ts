@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { BehaviorsModule } from './behaviors/behaviors.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
+import { CouponsModule } from './coupons/coupons.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { RecommendationsModule } from './recommendations/recommendations.module.js';
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module.js';
     ScheduleModule.forRoot(),
     AuthModule,
     CategoriesModule,
+    CouponsModule,
     ProductsModule,
     CartModule,
     OrdersModule,

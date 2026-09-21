@@ -11,6 +11,13 @@ export class OrderItem {
   @Column({ name: 'product_id', type: 'uuid' })
   productId!: string;
 
+  /** Snapshot at order time — stays stable even if the product is later renamed/removed. */
+  @Column({ name: 'product_name', type: 'varchar', nullable: true })
+  productName!: string | null;
+
+  @Column({ name: 'product_image_url', type: 'varchar', nullable: true })
+  productImageUrl!: string | null;
+
   @Column({ type: 'int' })
   quantity!: number;
 
