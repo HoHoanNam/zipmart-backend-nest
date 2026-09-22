@@ -66,11 +66,14 @@ Data ownership: this repo owns and migrates (TypeORM) `users`, `products`,
 
 ## Local Dev
 
-- `docker-compose.yml` runs Postgres 17 + Redis for local dev (backend-spring
-  service is commented out until that repo exists as a sibling checkout).
-  **Ports are remapped** (`5434` for Postgres, `6380` for Redis, not the
-  defaults) because this machine already runs other Postgres/Redis containers
-  on 5432/6379 for unrelated projects — check `.env.example` before assuming
+- Postgres runs **natively on the host** (not Docker) — role/database `zipmart`
+  on the default port `5432`. See
+  `docs/PROJECT-DATABASE-LOCAL-POSTGRES-MIGRATION.md` (monorepo root) for how
+  it was set up. `docker-compose.yml` only runs Redis for local dev
+  (backend-spring service is commented out until that repo exists as a
+  sibling checkout). Redis's host port is remapped to `6380` (not the
+  default `6379`) because this machine already runs another Redis container
+  on `6379` for an unrelated project — check `.env.example` before assuming
   standard ports.
 - Migrations: `npm run migration:run` / `npm run migration:revert`, using
   `src/database/data-source.ts` (must have exactly **one** export — TypeORM's

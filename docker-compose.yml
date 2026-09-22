@@ -1,19 +1,6 @@
 services:
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: zipmart
-      POSTGRES_PASSWORD: zipmart
-      POSTGRES_DB: zipmart
-    ports:
-      - '5434:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U zipmart']
-      interval: 5s
-      timeout: 5s
-      retries: 10
+  # Postgres runs natively on the host (see docs/PROJECT-DATABASE-LOCAL-POSTGRES-MIGRATION.md),
+  # not in Docker. Containerized services below reach it via host.docker.internal:5432.
 
   redis:
     image: redis:7-alpine
@@ -25,7 +12,7 @@ services:
     ports:
       - '3000:3000'
     environment:
-      DB_HOST: postgres
+      DB_HOST: host.docker.internal
       DB_PORT: 5432
       DB_USER: zipmart
       DB_PASSWORD: zipmart
@@ -36,8 +23,6 @@ services:
       JWT_ACCESS_SECRET: dev-access-secret
       JWT_REFRESH_SECRET: dev-refresh-secret
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_started
 
@@ -45,15 +30,9 @@ services:
   # backend-spring:
   #   build: ../zipmart-backend-spring
   #   environment:
-  #     DB_HOST: postgres
+  #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
   #     DB_USER: zipmart
   #     DB_PASSWORD: zipmart
   #     DB_NAME: zipmart
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
   #   # internal-only: no ports mapped to host
-
-volumes:
-  postgres_data:
