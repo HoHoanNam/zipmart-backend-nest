@@ -4,7 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Repository } from 'typeorm';
 import { CategoriesService } from '../categories/categories.service.js';
-import type { CategorySlug } from '../categories/category.entity.js';
+import { CategorySlug } from '../categories/category.entity.js';
 import { CATEGORY_ATTRIBUTE_SCHEMA } from './attribute-schemas.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { QueryProductDto } from './dto/query-product.dto.js';
@@ -45,7 +45,7 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto) {
-    await this.validateAttributes(dto.categoryId, dto.attributes);
+    await this.validateAttributes(dto.categoryId, dto.attributes, dto.images ?? []);
     const product = this.productRepo.create(dto);
     return this.productRepo.save(product);
   }
@@ -59,7 +59,7 @@ export class ProductsService {
       if (!categoryId) {
         throw new BadRequestException('categoryId is required to validate attributes');
       }
-      await this.validateAttributes(categoryId, attributes);
+      await this.validateAttributes(categoryId, attributes, dto.images ?? product.images);
     }
 
     Object.assign(product, dto);
@@ -97,6 +97,7 @@ export class ProductsService {
   private async validateAttributes(
     categoryId: string,
     attributes: Record<string, unknown>,
+    images: string[],
   ): Promise<void> {
     const category = await this.categoriesService.findOne(categoryId);
     if (!category) {
@@ -111,6 +112,18 @@ export class ProductsService {
       throw new BadRequestException(
         `Invalid attributes for category "${category.slug}": ${messages.join('; ')}`,
       );
+    }
+
+    if (category.slug === CategorySlug.APPAREL) {
+      const colorImages = (attributes as { colorImages?: Record<string, string> }).colorImages;
+      if (colorImages) {
+        const invalidUrls = Object.values(colorImages).filter((url) => !images.includes(url));
+        if (invalidUrls.length > 0) {
+          throw new BadRequestException(
+            `attributes.colorImages values must reference URLs already present in "images": ${invalidUrls.join(', ')}`,
+          );
+        }
+      }
     }
   }
 }
