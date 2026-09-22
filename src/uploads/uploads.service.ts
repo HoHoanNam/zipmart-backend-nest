@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 
 const PRODUCT_IMAGES_FOLDER = 'zipmart/products';
+const AVATAR_FOLDER = 'zipmart/avatars';
 
 export interface UploadedImage {
   url: string;
@@ -27,17 +28,22 @@ export class UploadsService implements OnModuleInit {
   }
 
   uploadImage(buffer: Buffer): Promise<UploadedImage> {
+    return this.uploadToFolder(buffer, PRODUCT_IMAGES_FOLDER);
+  }
+
+  uploadAvatar(buffer: Buffer): Promise<UploadedImage> {
+    return this.uploadToFolder(buffer, AVATAR_FOLDER);
+  }
+
+  private uploadToFolder(buffer: Buffer, folder: string): Promise<UploadedImage> {
     return new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: PRODUCT_IMAGES_FOLDER },
-        (error, result) => {
-          if (error || !result) {
-            reject(error ?? new Error('Cloudinary upload returned no result'));
-            return;
-          }
-          resolve({ url: result.secure_url, publicId: result.public_id });
-        },
-      );
+      const stream = cloudinary.uploader.upload_stream({ folder }, (error, result) => {
+        if (error || !result) {
+          reject(error ?? new Error('Cloudinary upload returned no result'));
+          return;
+        }
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      });
       stream.end(buffer);
     });
   }

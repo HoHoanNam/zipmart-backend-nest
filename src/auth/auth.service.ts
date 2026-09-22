@@ -41,6 +41,18 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepo.save(user);
+
+    return { success: true };
+  }
+
   async refresh(refreshToken: string) {
     let payload: JwtPayload;
     try {

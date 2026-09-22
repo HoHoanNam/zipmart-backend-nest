@@ -22,6 +22,9 @@ export class User {
   @Column({ name: 'phone_number', type: 'varchar', nullable: true })
   phoneNumber!: string | null;
 
+  @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
+  avatarUrl!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }
