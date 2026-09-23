@@ -31,6 +31,10 @@ export class Product {
   @Column({ type: 'numeric', precision: 10, scale: 2 })
   price!: string;
 
+  /** Pre-discount reference price — when set and greater than `price`, the frontend shows a strikethrough + "-X%" badge. */
+  @Column({ name: 'original_price', type: 'numeric', precision: 10, scale: 2, nullable: true })
+  originalPrice!: string | null;
+
   @Column({ type: 'int', default: 0 })
   stock!: number;
 

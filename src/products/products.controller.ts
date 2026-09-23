@@ -19,6 +19,11 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get('brands')
+  findDistinctBrands(@Query('categoryId') categoryId?: string) {
+    return this.productsService.findDistinctBrands(categoryId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);

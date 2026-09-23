@@ -1,3 +1,4 @@
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -9,7 +10,9 @@ import {
   IsUrl,
   IsUUID,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { VariantDto } from './variant.dto.js';
 
 export class CreateProductDto {
   @IsString()
@@ -18,8 +21,10 @@ export class CreateProductDto {
   @IsUUID()
   categoryId!: string;
 
+  /** Normalized to uppercase so "Levi's"/"LEVI'S"/"levi's" all dedupe to 1 brand for filtering. */
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
   brand?: string;
 
   @IsOptional()
@@ -44,7 +49,18 @@ export class CreateProductDto {
   @IsNumberString()
   price!: string;
 
+  @IsOptional()
+  @IsNumberString()
+  originalPrice?: string;
+
   @IsInt()
   @Min(0)
   stock!: number;
+
+  /** When present, this product uses real per-variant price/stock — see products.service.ts. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantDto)
+  variants?: VariantDto[];
 }
