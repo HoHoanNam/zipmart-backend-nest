@@ -53,6 +53,11 @@ export class OrdersController {
     return this.ordersService.cancel(id, user);
   }
 
+  @Patch(':id/received')
+  markReceived(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.ordersService.markReceived(id, user);
+  }
+
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch(':id/status')

@@ -4,9 +4,11 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AddressesModule } from './addresses/addresses.module.js';
 import { AnalyticsModule } from './analytics/analytics.module.js';
 import { AppController } from './app.controller.js';
 import { AuthModule } from './auth/auth.module.js';
+import { BannersModule } from './banners/banners.module.js';
 import { BehaviorsModule } from './behaviors/behaviors.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
@@ -52,6 +54,8 @@ import { WishlistModule } from './wishlist/wishlist.module.js';
     UsersModule,
     AnalyticsModule,
     UploadsModule,
+    BannersModule,
+    AddressesModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

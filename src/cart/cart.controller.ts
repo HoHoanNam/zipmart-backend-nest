@@ -20,7 +20,7 @@ export class CartController {
 
   @Post('items')
   addItem(@CurrentUser() user: AuthenticatedUser, @Body() dto: AddCartItemDto) {
-    return this.cartService.addItem(user.sub, dto.productId, dto.quantity);
+    return this.cartService.addItem(user.sub, dto.productId, dto.quantity, dto.variantId ?? null);
   }
 
   @Patch('items/:id')

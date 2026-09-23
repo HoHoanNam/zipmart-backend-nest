@@ -11,6 +11,13 @@ export class OrderItem {
   @Column({ name: 'product_id', type: 'uuid' })
   productId!: string;
 
+  @Column({ name: 'variant_id', type: 'uuid', nullable: true })
+  variantId!: string | null;
+
+  /** Snapshot at order time — stays stable even if the variant is later renamed/removed. e.g. "M / Đen". */
+  @Column({ name: 'variant_label', type: 'varchar', nullable: true })
+  variantLabel!: string | null;
+
   /** Snapshot at order time — stays stable even if the product is later renamed/removed. */
   @Column({ name: 'product_name', type: 'varchar', nullable: true })
   productName!: string | null;

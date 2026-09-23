@@ -1,11 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { User, UserRole } from '../auth/user.entity.js';
 import { CartItem } from '../cart/cart-item.entity.js';
 import { CartService } from '../cart/cart.service.js';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { CouponsService } from '../coupons/coupons.service.js';
+import { ProductVariant } from '../products/product-variant.entity.js';
 import { Product } from '../products/product.entity.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import type { UpdateOrderAddressDto } from './dto/update-order-address.dto.js';
@@ -58,18 +59,25 @@ export class OrdersService {
     return this.orderRepo.save(order);
   }
 
+  /** Self-service — the order's own owner confirms delivery, not admin. */
+  async markReceived(id: string, user: AuthenticatedUser): Promise<Order> {
+    const order = await this.findOrderOrThrow(id);
+    this.assertOwnership(order, user);
+    if (order.status !== OrderStatus.SHIPPED) {
+      throw new BadRequestException('Order can only be marked received while shipped');
+    }
+
+    order.status = OrderStatus.COMPLETED;
+    return this.orderRepo.save(order);
+  }
+
   async cancel(id: string, user: AuthenticatedUser): Promise<Order> {
     const order = await this.findOrderOrThrow(id);
     this.assertOwnership(order, user);
     this.assertPendingForEdit(order);
 
     await this.orderRepo.manager.transaction(async (manager) => {
-      const items = await manager.getRepository(OrderItem).find({ where: { orderId: id } });
-      for (const item of items) {
-        await manager
-          .getRepository(Product)
-          .increment({ id: item.productId }, 'stock', item.quantity);
-      }
+      await this.restockItems(manager, id);
       order.status = OrderStatus.CANCELLED;
       await manager.getRepository(Order).save(order);
     });
@@ -83,9 +91,34 @@ export class OrdersService {
       throw new BadRequestException(`Cannot change status of a ${order.status} order`);
     }
 
+    if (status === OrderStatus.CANCELLED) {
+      // Admin can cancel from paid/shipped, not just pending (unlike the
+      // customer-facing `cancel()`) — must restock here too, or stock
+      // decremented at checkout is never returned.
+      await this.orderRepo.manager.transaction(async (manager) => {
+        await this.restockItems(manager, id);
+        order.status = status;
+        await manager.getRepository(Order).save(order);
+      });
+      return order;
+    }
+
     order.status = status;
     await this.orderRepo.save(order);
     return order;
+  }
+
+  private async restockItems(manager: EntityManager, orderId: string): Promise<void> {
+    const items = await manager.getRepository(OrderItem).find({ where: { orderId } });
+    for (const item of items) {
+      if (item.variantId) {
+        await manager
+          .getRepository(ProductVariant)
+          .increment({ id: item.variantId }, 'stock', item.quantity);
+      } else {
+        await manager.getRepository(Product).increment({ id: item.productId }, 'stock', item.quantity);
+      }
+    }
   }
 
   async checkout(userId: string, dto: CreateOrderDto): Promise<Order> {
@@ -96,6 +129,7 @@ export class OrdersService {
 
     return this.orderRepo.manager.transaction(async (manager) => {
       const productRepo = manager.getRepository(Product);
+      const variantRepo = manager.getRepository(ProductVariant);
       const orderItemRepo = manager.getRepository(OrderItem);
 
       let subtotal = 0;
@@ -109,17 +143,39 @@ export class OrdersService {
         if (!product) {
           throw new BadRequestException('A product in your cart is no longer available');
         }
-        if (product.stock < cartItem.quantity) {
-          throw new BadRequestException(`Insufficient stock for "${product.name}"`);
+
+        let unitPrice: number;
+        let variantLabel: string | null = null;
+
+        if (cartItem.variantId) {
+          const variant = await variantRepo.findOne({
+            where: { id: cartItem.variantId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!variant) {
+            throw new BadRequestException('A product variant in your cart is no longer available');
+          }
+          if (variant.stock < cartItem.quantity) {
+            throw new BadRequestException(`Insufficient stock for "${product.name}"`);
+          }
+          variant.stock -= cartItem.quantity;
+          await variantRepo.save(variant);
+          unitPrice = Number(variant.price ?? product.price);
+          variantLabel = [variant.size, variant.color].filter(Boolean).join(' / ') || null;
+        } else {
+          if (product.stock < cartItem.quantity) {
+            throw new BadRequestException(`Insufficient stock for "${product.name}"`);
+          }
+          product.stock -= cartItem.quantity;
+          await productRepo.save(product);
+          unitPrice = Number(product.price);
         }
 
-        product.stock -= cartItem.quantity;
-        await productRepo.save(product);
-
-        const unitPrice = Number(product.price);
         subtotal += unitPrice * cartItem.quantity;
         orderItems.push({
           productId: cartItem.productId,
+          variantId: cartItem.variantId,
+          variantLabel,
           productName: product.name,
           productImageUrl: product.images[0] ?? null,
           quantity: cartItem.quantity,
