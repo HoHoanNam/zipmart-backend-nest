@@ -13,6 +13,10 @@ export class WishlistService {
     return this.wishlistRepo.find({ where: { userId }, order: { addedAt: 'DESC' } });
   }
 
+  countForUser(userId: string): Promise<number> {
+    return this.wishlistRepo.count({ where: { userId } });
+  }
+
   async addItem(userId: string, productId: string): Promise<WishlistItem> {
     const existing = await this.wishlistRepo.findOne({ where: { userId, productId } });
     if (existing) {

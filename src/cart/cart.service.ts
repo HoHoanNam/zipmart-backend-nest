@@ -11,6 +11,15 @@ export class CartService {
     return this.cartRepo.find({ where: { userId } });
   }
 
+  async countForUser(userId: string): Promise<number> {
+    const result = await this.cartRepo
+      .createQueryBuilder('item')
+      .select('COALESCE(SUM(item.quantity), 0)', 'total')
+      .where('item.userId = :userId', { userId })
+      .getRawOne<{ total: string }>();
+    return Number(result?.total ?? 0);
+  }
+
   async addItem(userId: string, productId: string, quantity: number, variantId: string | null = null) {
     const existing = await this.cartRepo.findOne({
       where: { userId, productId, variantId: variantId ?? IsNull() },

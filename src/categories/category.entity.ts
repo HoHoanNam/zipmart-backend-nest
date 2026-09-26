@@ -18,6 +18,9 @@ export class Category {
   @Column({ type: 'varchar', unique: true })
   slug!: string;
 
+  @Column({ name: 'image_url', type: 'varchar', nullable: true })
+  imageUrl!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }

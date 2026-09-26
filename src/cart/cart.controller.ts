@@ -18,6 +18,12 @@ export class CartController {
     return this.cartService.findForUser(user.sub);
   }
 
+  /** Lightweight badge count — avoids shipping the full item array to clients that only need a number. */
+  @Get('count')
+  async count(@CurrentUser() user: AuthenticatedUser) {
+    return { count: await this.cartService.countForUser(user.sub) };
+  }
+
   @Post('items')
   addItem(@CurrentUser() user: AuthenticatedUser, @Body() dto: AddCartItemDto) {
     return this.cartService.addItem(user.sub, dto.productId, dto.quantity, dto.variantId ?? null);

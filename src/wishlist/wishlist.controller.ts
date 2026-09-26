@@ -17,6 +17,12 @@ export class WishlistController {
     return this.wishlistService.findForUser(user.sub);
   }
 
+  /** Lightweight badge count — avoids shipping the full item array to clients that only need a number. */
+  @Get('count')
+  async count(@CurrentUser() user: AuthenticatedUser) {
+    return { count: await this.wishlistService.countForUser(user.sub) };
+  }
+
   @Post('items')
   addItem(@CurrentUser() user: AuthenticatedUser, @Body() dto: AddWishlistItemDto) {
     return this.wishlistService.addItem(user.sub, dto.productId);
