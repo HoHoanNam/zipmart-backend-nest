@@ -14,8 +14,12 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
+import { RolesGuard } from '../auth/roles.guard.js';
+import { UserRole } from '../auth/user.entity.js';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
+import { Roles } from '../common/decorators/roles.decorator.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
+import { ModerateReviewDto } from './dto/moderate-review.dto.js';
 import { UpdateReviewDto } from './dto/update-review.dto.js';
 import { ReviewsService } from './reviews.service.js';
 
@@ -32,6 +36,22 @@ export class ReviewsController {
   @Get('summary')
   getSummary(@Query('productId', ParseUUIDPipe) productId: string) {
     return this.reviewsService.getSummaryForProduct(productId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Get('admin')
+  findAllAdmin(@Query('productId') productId?: string) {
+    return this.reviewsService.findAllAdmin(productId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Patch('admin/:id')
+  moderate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ModerateReviewDto) {
+    return this.reviewsService.moderate(id, dto);
   }
 
   @ApiBearerAuth()

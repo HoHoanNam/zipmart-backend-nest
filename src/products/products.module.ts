@@ -6,9 +6,14 @@ import { ProductVariant } from './product-variant.entity.js';
 import { Product } from './product.entity.js';
 import { ProductsController } from './products.controller.js';
 import { ProductsService } from './products.service.js';
+import { StockMovement } from './stock-movement.entity.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product, ProductVariant]), AuthModule, CategoriesModule],
+  imports: [
+    TypeOrmModule.forFeature([Product, ProductVariant, StockMovement]),
+    AuthModule,
+    CategoriesModule,
+  ],
   controllers: [ProductsController],
   providers: [ProductsService],
   exports: [ProductsService],

@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { UserRole } from '../auth/user.entity.js';
+import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { ApplyCouponDto } from './dto/apply-coupon.dto.js';
 import { CreateCouponDto } from './dto/create-coupon.dto.js';
@@ -17,8 +18,13 @@ export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
 
   @Post('apply')
-  apply(@Body() dto: ApplyCouponDto) {
-    return this.couponsService.applyCoupon(dto.code, dto.subtotal);
+  apply(@CurrentUser() user: AuthenticatedUser, @Body() dto: ApplyCouponDto) {
+    return this.couponsService.applyCoupon(dto.code, dto.subtotal, user.sub);
+  }
+
+  @Get('available')
+  findAvailable() {
+    return this.couponsService.findAvailable();
   }
 
   @UseGuards(RolesGuard)

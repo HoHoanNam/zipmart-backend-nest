@@ -3,21 +3,26 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import type { SelectQueryBuilder } from 'typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CategoriesService } from '../categories/categories.service.js';
 import { CategorySlug } from '../categories/category.entity.js';
-import { CATEGORY_ATTRIBUTE_SCHEMA } from './attribute-schemas.js';
+import { CATEGORY_ATTRIBUTE_SCHEMA, DEFAULT_ATTRIBUTE_SCHEMA } from './attribute-schemas.js';
+import type { AdjustStockDto } from './dto/adjust-stock.dto.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { QueryProductDto } from './dto/query-product.dto.js';
+import type { UpdateLowStockThresholdDto } from './dto/update-low-stock-threshold.dto.js';
 import type { UpdateProductDto } from './dto/update-product.dto.js';
 import { ProductVariant } from './product-variant.entity.js';
 import { Product } from './product.entity.js';
+import { DEFAULT_LOW_STOCK_THRESHOLD } from './products.constants.js';
+import { StockMovement } from './stock-movement.entity.js';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product) private readonly productRepo: Repository<Product>,
     @InjectRepository(ProductVariant) private readonly variantRepo: Repository<ProductVariant>,
+    @InjectRepository(StockMovement) private readonly stockMovementRepo: Repository<StockMovement>,
     private readonly categoriesService: CategoriesService,
   ) {}
 
@@ -29,8 +34,18 @@ export class ProductsService {
     }
 
     if (query.search) {
-      // Simple ILIKE search for now; upgrade to PostgreSQL tsvector when search volume needs it.
-      filtered.andWhere('product.name ILIKE :search', { search: `%${query.search}%` });
+      // Full-text match (word-based, tolerant of word order/multiple terms)
+      // OR'd with the original ILIKE substring match — kept, not replaced,
+      // so a query like "lap" still finds "laptop" the way it always has;
+      // `search_vector` alone wouldn't match a bare prefix like that.
+      // Raw column name (not `product.searchVector`) because the generated
+      // column isn't mapped on the `Product` entity at all — deliberately,
+      // so the raw tsvector value never leaks into API responses via the
+      // `{...entity}` spreads used throughout this service.
+      filtered.andWhere(
+        `("product"."search_vector" @@ websearch_to_tsquery('simple', :search) OR product.name ILIKE :searchLike)`,
+        { search: query.search, searchLike: `%${query.search}%` },
+      );
     }
 
     if (query.brand) {
@@ -121,6 +136,7 @@ export class ProductsService {
     return { items, total, page: query.page, limit: query.limit };
   }
 
+  /** `hidden = false` here must match `ReviewsService.getSummaryForProduct()`'s filter exactly — two separate queries (list vs. detail page) computing the same "average rating", so a hidden review must disappear from both or product cards and product detail would show different numbers. */
   private reviewSummarySubquery(): (sub: SelectQueryBuilder<any>) => SelectQueryBuilder<any> {
     return (sub) =>
       sub
@@ -128,6 +144,7 @@ export class ProductsService {
         .addSelect('AVG(review.rating)', 'averageRating')
         .addSelect('COUNT(*)', 'reviewCount')
         .from('reviews', 'review')
+        .where('review.hidden = false')
         .groupBy('review.product_id');
   }
 
@@ -151,6 +168,86 @@ export class ProductsService {
         .addSelect('COUNT(*)', 'variantCount')
         .from('product_variants', 'variant')
         .groupBy('variant.product_id');
+  }
+
+  /** Read-only, small N (compare UI caps selection at a handful of products) — silently drops any id that's missing/deleted rather than erroring, and preserves the order the caller asked for. */
+  async findManyForCompare(ids: string[]): Promise<Product[]> {
+    if (ids.length === 0) return [];
+    const products = await this.productRepo.find({ where: { id: In(ids) } });
+    const byId = new Map(products.map((product) => [product.id, product]));
+    return ids.map((id) => byId.get(id)).filter((product): product is Product => product !== undefined);
+  }
+
+  /** Lightweight autocomplete — id/name/thumbnail only, capped at 8 results. Same match predicate as `findAll()`'s `search` filter, kept in sync deliberately (a term the suggest dropdown surfaces should always also work if the user just hits enter instead of picking a suggestion). */
+  async suggest(q: string): Promise<{ id: string; name: string; thumbnail: string | null }[]> {
+    if (!q || q.trim().length === 0) return [];
+
+    const products = await this.productRepo
+      .createQueryBuilder('product')
+      .select(['product.id', 'product.name', 'product.images'])
+      .where(
+        `("product"."search_vector" @@ websearch_to_tsquery('simple', :search) OR product.name ILIKE :searchLike)`,
+        { search: q, searchLike: `%${q}%` },
+      )
+      .orderBy('product.name', 'ASC')
+      .limit(8)
+      .getMany();
+
+    return products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      thumbnail: product.images[0] ?? null,
+    }));
+  }
+
+  /**
+   * The only writer of `product.stock` outside `orders.service.ts`'s
+   * checkout/restock paths — uses the same atomic `increment()` technique
+   * (a single `UPDATE ... SET stock = stock + x`, not read-then-`save()`)
+   * so a manual admin adjustment can never race a concurrent checkout into
+   * corrupting the count. `change` may be negative (stock removed).
+   */
+  async adjustStock(productId: string, dto: AdjustStockDto): Promise<Product> {
+    const product = await this.productRepo.findOne({ where: { id: productId } });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+    if (product.stock + dto.change < 0) {
+      throw new BadRequestException('Không thể giảm tồn kho xuống dưới 0');
+    }
+
+    await this.productRepo.increment({ id: productId }, 'stock', dto.change);
+    await this.stockMovementRepo.save(
+      this.stockMovementRepo.create({ productId, change: dto.change, reason: dto.reason }),
+    );
+    return this.findOne(productId);
+  }
+
+  findStockMovements(productId: string): Promise<StockMovement[]> {
+    return this.stockMovementRepo.find({ where: { productId }, order: { createdAt: 'DESC' } });
+  }
+
+  async updateLowStockThreshold(
+    productId: string,
+    dto: UpdateLowStockThresholdDto,
+  ): Promise<Product> {
+    const product = await this.productRepo.findOne({ where: { id: productId } });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+    product.lowStockThreshold = dto.threshold ?? null;
+    return this.productRepo.save(product);
+  }
+
+  /** Same `COALESCE(threshold, default)` comparison as `AnalyticsService.getDashboard()` — kept in sync deliberately so the dashboard's low-stock count and this list never disagree on what counts as "low". */
+  findLowStock(): Promise<Product[]> {
+    return this.productRepo
+      .createQueryBuilder('product')
+      .where('product.stock < COALESCE(product.lowStockThreshold, :defaultThreshold)', {
+        defaultThreshold: DEFAULT_LOW_STOCK_THRESHOLD,
+      })
+      .orderBy('product.stock', 'ASC')
+      .getMany();
   }
 
   async findDistinctBrands(categoryId?: string): Promise<string[]> {
@@ -264,9 +361,14 @@ export class ProductsService {
       throw new NotFoundException('Category not found');
     }
 
-    const schema = CATEGORY_ATTRIBUTE_SCHEMA[category.slug as CategorySlug];
+    const schema = CATEGORY_ATTRIBUTE_SCHEMA[category.slug] ?? DEFAULT_ATTRIBUTE_SCHEMA;
     const instance = plainToInstance(schema, attributes);
-    const errors = await validate(instance, { whitelist: true });
+    // `forbidUnknownValues` (on by default in class-validator) rejects any
+    // class with zero decorated properties as "unknown" — without turning it
+    // off here, `GenericAttributesDto` (intentionally empty, for dynamically
+    // created categories) would reject every product instead of accepting
+    // any shape.
+    const errors = await validate(instance, { whitelist: true, forbidUnknownValues: false });
     if (errors.length > 0) {
       const messages = errors.flatMap((error) => Object.values(error.constraints ?? {}));
       throw new BadRequestException(

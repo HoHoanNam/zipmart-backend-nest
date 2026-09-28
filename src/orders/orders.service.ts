@@ -6,6 +6,8 @@ import { CartItem } from '../cart/cart-item.entity.js';
 import { CartService } from '../cart/cart.service.js';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { CouponsService } from '../coupons/coupons.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationType } from '../notifications/notification.entity.js';
 import { ProductVariant } from '../products/product-variant.entity.js';
 import { Product } from '../products/product.entity.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
@@ -13,6 +15,7 @@ import type { UpdateOrderAddressDto } from './dto/update-order-address.dto.js';
 import { OrderItem } from './order-item.entity.js';
 import { Order, OrderStatus } from './order.entity.js';
 import { VAT_RATE } from './orders.constants.js';
+import { ShipmentEvent } from './shipment-event.entity.js';
 
 const TERMINAL_STATUSES = [OrderStatus.COMPLETED, OrderStatus.CANCELLED];
 
@@ -22,9 +25,46 @@ export class OrdersService {
     @InjectRepository(Order) private readonly orderRepo: Repository<Order>,
     @InjectRepository(OrderItem) private readonly orderItemRepo: Repository<OrderItem>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(ShipmentEvent) private readonly shipmentEventRepo: Repository<ShipmentEvent>,
     private readonly cartService: CartService,
     private readonly couponsService: CouponsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
+
+  private static readonly STATUS_NOTIFICATION_COPY: Record<OrderStatus, { title: string; body: string }> = {
+    [OrderStatus.PENDING]: {
+      title: 'Đặt hàng thành công',
+      body: 'Đơn hàng của bạn đã được ghi nhận và đang chờ xử lý.',
+    },
+    [OrderStatus.PAID]: {
+      title: 'Đơn hàng đã thanh toán',
+      body: 'Đơn hàng của bạn đã được xác nhận thanh toán.',
+    },
+    [OrderStatus.SHIPPED]: {
+      title: 'Đơn hàng đang được giao',
+      body: 'Đơn hàng của bạn đang trên đường giao đến bạn.',
+    },
+    [OrderStatus.COMPLETED]: {
+      title: 'Đơn hàng hoàn thành',
+      body: 'Cảm ơn bạn đã mua sắm tại zipmart!',
+    },
+    [OrderStatus.CANCELLED]: {
+      title: 'Đơn hàng đã huỷ',
+      body: 'Đơn hàng của bạn đã bị huỷ.',
+    },
+  };
+
+  private notifyStatusChange(order: Order, note?: string | null): void {
+    const copy = OrdersService.STATUS_NOTIFICATION_COPY[order.status];
+    const body = note ? `${copy.body} Ghi chú: ${note}` : copy.body;
+    void this.notificationsService.notifyUser(
+      order.userId,
+      NotificationType.ORDER_STATUS,
+      copy.title,
+      body,
+      order.id,
+    );
+  }
 
   findForUser(userId: string) {
     return this.orderRepo.find({ where: { userId }, order: { createdAt: 'DESC' } });
@@ -51,6 +91,12 @@ export class OrdersService {
     return { ...order, items };
   }
 
+  async findEvents(id: string, user: AuthenticatedUser): Promise<ShipmentEvent[]> {
+    const order = await this.findOrderOrThrow(id);
+    this.assertOwnership(order, user);
+    return this.shipmentEventRepo.find({ where: { orderId: id }, order: { occurredAt: 'ASC' } });
+  }
+
   async update(id: string, user: AuthenticatedUser, dto: UpdateOrderAddressDto): Promise<Order> {
     const order = await this.findOrderOrThrow(id);
     this.assertOwnership(order, user);
@@ -68,7 +114,12 @@ export class OrdersService {
     }
 
     order.status = OrderStatus.COMPLETED;
-    return this.orderRepo.save(order);
+    await this.orderRepo.save(order);
+    await this.shipmentEventRepo.save(
+      this.shipmentEventRepo.create({ orderId: id, status: order.status, note: null }),
+    );
+    this.notifyStatusChange(order);
+    return order;
   }
 
   async cancel(id: string, user: AuthenticatedUser): Promise<Order> {
@@ -80,12 +131,16 @@ export class OrdersService {
       await this.restockItems(manager, id);
       order.status = OrderStatus.CANCELLED;
       await manager.getRepository(Order).save(order);
+      await manager
+        .getRepository(ShipmentEvent)
+        .save(manager.getRepository(ShipmentEvent).create({ orderId: id, status: order.status, note: null }));
     });
 
+    this.notifyStatusChange(order);
     return order;
   }
 
-  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
+  async updateStatus(id: string, status: OrderStatus, note?: string): Promise<Order> {
     const order = await this.findOrderOrThrow(id);
     if (TERMINAL_STATUSES.includes(order.status)) {
       throw new BadRequestException(`Cannot change status of a ${order.status} order`);
@@ -99,12 +154,20 @@ export class OrdersService {
         await this.restockItems(manager, id);
         order.status = status;
         await manager.getRepository(Order).save(order);
+        await manager
+          .getRepository(ShipmentEvent)
+          .save(manager.getRepository(ShipmentEvent).create({ orderId: id, status, note: note ?? null }));
       });
+      this.notifyStatusChange(order, note);
       return order;
     }
 
     order.status = status;
     await this.orderRepo.save(order);
+    await this.shipmentEventRepo.save(
+      this.shipmentEventRepo.create({ orderId: id, status, note: note ?? null }),
+    );
+    this.notifyStatusChange(order, note);
     return order;
   }
 
@@ -184,9 +247,16 @@ export class OrdersService {
       }
 
       let discountAmount = 0;
+      let appliedCouponId: string | null = null;
       if (dto.couponCode) {
-        const result = await this.couponsService.applyCoupon(dto.couponCode, subtotal);
+        const result = await this.couponsService.applyCouponInTransaction(
+          manager,
+          dto.couponCode,
+          subtotal,
+          userId,
+        );
         discountAmount = result.discountAmount;
+        appliedCouponId = result.couponId;
       }
 
       const taxAmount = Number(((subtotal - discountAmount) * VAT_RATE).toFixed(2));
@@ -207,6 +277,13 @@ export class OrdersService {
         total: total.toFixed(2),
       });
       await manager.getRepository(Order).save(order);
+      await manager
+        .getRepository(ShipmentEvent)
+        .save(
+          manager
+            .getRepository(ShipmentEvent)
+            .create({ orderId: order.id, status: order.status, note: null }),
+        );
 
       for (const item of orderItems) {
         await orderItemRepo.save(orderItemRepo.create({ ...item, orderId: order.id }));
@@ -215,6 +292,11 @@ export class OrdersService {
       await manager.getRepository(CartItem).delete({ userId });
       await manager.getRepository(User).update({ id: userId }, { phoneNumber: dto.phoneNumber });
 
+      if (appliedCouponId) {
+        await this.couponsService.recordUsage(manager, appliedCouponId, userId, order.id);
+      }
+
+      this.notifyStatusChange(order);
       return order;
     });
   }

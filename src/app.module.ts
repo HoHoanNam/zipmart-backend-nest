@@ -13,6 +13,7 @@ import { BehaviorsModule } from './behaviors/behaviors.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { CouponsModule } from './coupons/coupons.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { RecommendationsModule } from './recommendations/recommendations.module.js';
@@ -56,6 +57,7 @@ import { WishlistModule } from './wishlist/wishlist.module.js';
     UploadsModule,
     BannersModule,
     AddressesModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

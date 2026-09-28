@@ -1,10 +1,11 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { UserRole } from '../auth/user.entity.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { AnalyticsService } from './analytics.service.js';
+import { ReportRangeDto, TopProductsQueryDto } from './dto/report-range.dto.js';
 
 @ApiTags('analytics')
 @ApiBearerAuth()
@@ -22,5 +23,20 @@ export class AnalyticsController {
   @Get('engagement')
   getEngagement() {
     return this.analyticsService.getEngagement();
+  }
+
+  @Get('revenue-report')
+  getRevenueReport(@Query() query: ReportRangeDto) {
+    return this.analyticsService.getRevenueReport(query);
+  }
+
+  @Get('top-products')
+  getTopProducts(@Query() query: TopProductsQueryDto) {
+    return this.analyticsService.getTopProducts(query);
+  }
+
+  @Get('export/orders')
+  exportOrders(@Query() query: ReportRangeDto) {
+    return this.analyticsService.exportOrdersCsv(query);
   }
 }

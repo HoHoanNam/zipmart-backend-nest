@@ -31,6 +31,15 @@ export class Review {
   @Column({ type: 'text' })
   comment!: string;
 
+  @Column({ type: 'boolean', default: false })
+  hidden!: boolean;
+
+  @Column({ name: 'admin_reply', type: 'text', nullable: true })
+  adminReply!: string | null;
+
+  @Column({ name: 'admin_reply_at', type: 'timestamptz', nullable: true })
+  adminReplyAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

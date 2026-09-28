@@ -39,6 +39,11 @@ export class OrdersController {
     return this.ordersService.findOne(id, user);
   }
 
+  @Get(':id/events')
+  findEvents(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.ordersService.findEvents(id, user);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -62,6 +67,6 @@ export class OrdersController {
   @Roles(UserRole.ADMIN)
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
-    return this.ordersService.updateStatus(id, dto.status);
+    return this.ordersService.updateStatus(id, dto.status, dto.note);
   }
 }

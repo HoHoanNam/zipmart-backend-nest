@@ -4,16 +4,19 @@ import { AuthModule } from '../auth/auth.module.js';
 import { User } from '../auth/user.entity.js';
 import { CartModule } from '../cart/cart.module.js';
 import { CouponsModule } from '../coupons/coupons.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { OrderItem } from './order-item.entity.js';
 import { Order } from './order.entity.js';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
+import { ShipmentEvent } from './shipment-event.entity.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, OrderItem, User]),
+    TypeOrmModule.forFeature([Order, OrderItem, User, ShipmentEvent]),
     CartModule,
     CouponsModule,
+    NotificationsModule,
     AuthModule,
   ],
   controllers: [OrdersController],

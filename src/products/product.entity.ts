@@ -38,6 +38,10 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   stock!: number;
 
+  /** Null = use the platform default (10, same as the admin dashboard's low-stock alert used before this column existed). */
+  @Column({ name: 'low_stock_threshold', type: 'int', nullable: true })
+  lowStockThreshold!: number | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }
