@@ -22,6 +22,7 @@ services:
       BACKEND_SPRING_URL: http://backend-spring:8080
       JWT_ACCESS_SECRET: dev-access-secret
       JWT_REFRESH_SECRET: dev-refresh-secret
+      CORS_ALLOWED_ORIGINS: http://localhost:4200,http://localhost:4300
     depends_on:
       redis:
         condition: service_started
