@@ -4,6 +4,7 @@ export enum NotificationType {
   ORDER_STATUS = 'order_status',
   COUPON = 'coupon',
   BROADCAST = 'broadcast',
+  RETURN_STATUS = 'return_status',
 }
 
 /**
@@ -36,6 +37,10 @@ export class Notification {
   /** Order id, coupon id, etc. — whatever the notification is about, for the frontend to deep-link. Not a FK: the referenced entity type varies by `type`. */
   @Column({ name: 'related_entity_id', type: 'uuid', nullable: true })
   relatedEntityId!: string | null;
+
+  /** Null = not yet included in an email digest. Set by `NotificationsDigestJob` once it emails this notification — deliberately independent of `isRead` (a user might read it in-app before the digest runs, or vice versa), so the digest never re-sends the same notification twice. */
+  @Column({ name: 'digest_sent_at', type: 'timestamptz', nullable: true })
+  digestSentAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

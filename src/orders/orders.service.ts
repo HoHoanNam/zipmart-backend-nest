@@ -6,15 +6,16 @@ import { CartItem } from '../cart/cart-item.entity.js';
 import { CartService } from '../cart/cart.service.js';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { CouponsService } from '../coupons/coupons.service.js';
+import { LoyaltyService } from '../loyalty/loyalty.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { NotificationType } from '../notifications/notification.entity.js';
 import { ProductVariant } from '../products/product-variant.entity.js';
 import { Product } from '../products/product.entity.js';
+import { SettingsService } from '../settings/settings.service.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import type { UpdateOrderAddressDto } from './dto/update-order-address.dto.js';
 import { OrderItem } from './order-item.entity.js';
 import { Order, OrderStatus } from './order.entity.js';
-import { VAT_RATE } from './orders.constants.js';
 import { ShipmentEvent } from './shipment-event.entity.js';
 
 const TERMINAL_STATUSES = [OrderStatus.COMPLETED, OrderStatus.CANCELLED];
@@ -28,7 +29,9 @@ export class OrdersService {
     @InjectRepository(ShipmentEvent) private readonly shipmentEventRepo: Repository<ShipmentEvent>,
     private readonly cartService: CartService,
     private readonly couponsService: CouponsService,
+    private readonly loyaltyService: LoyaltyService,
     private readonly notificationsService: NotificationsService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   private static readonly STATUS_NOTIFICATION_COPY: Record<OrderStatus, { title: string; body: string }> = {
@@ -119,6 +122,7 @@ export class OrdersService {
       this.shipmentEventRepo.create({ orderId: id, status: order.status, note: null }),
     );
     this.notifyStatusChange(order);
+    void this.loyaltyService.earnForOrder(order.userId, order.id, Number(order.total));
     return order;
   }
 
@@ -168,6 +172,9 @@ export class OrdersService {
       this.shipmentEventRepo.create({ orderId: id, status, note: note ?? null }),
     );
     this.notifyStatusChange(order, note);
+    if (status === OrderStatus.COMPLETED) {
+      void this.loyaltyService.earnForOrder(order.userId, order.id, Number(order.total));
+    }
     return order;
   }
 
@@ -189,6 +196,10 @@ export class OrdersService {
     if (cartItems.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
+    // Read-only config lookup (Redis-cached) — fetched before the
+    // transaction starts since it isn't part of the checkout locking/write
+    // set at all.
+    const vatRate = await this.settingsService.getVatRate();
 
     return this.orderRepo.manager.transaction(async (manager) => {
       const productRepo = manager.getRepository(Product);
@@ -259,7 +270,26 @@ export class OrdersService {
         appliedCouponId = result.couponId;
       }
 
-      const taxAmount = Number(((subtotal - discountAmount) * VAT_RATE).toFixed(2));
+      // Loyalty redemption stacks on top of any coupon discount — folded
+      // into the same `discountAmount` the order already persists (this
+      // schema has never tracked coupon vs. other discount separately; the
+      // per-source breakdown lives in `CouponUsage`/`LoyaltyTransaction`
+      // instead). Balance is decremented now (inside this transaction);
+      // the ledger row is written after `order.id` exists, below.
+      let redeemedPoints = 0;
+      let loyaltyBalanceAfterRedeem = 0;
+      if (dto.redeemPoints) {
+        const redemption = await this.loyaltyService.redeemInTransaction(
+          manager,
+          userId,
+          dto.redeemPoints,
+        );
+        discountAmount += redemption.discountAmount;
+        redeemedPoints = dto.redeemPoints;
+        loyaltyBalanceAfterRedeem = redemption.newBalance;
+      }
+
+      const taxAmount = Number(((subtotal - discountAmount) * vatRate).toFixed(2));
       const total = subtotal - discountAmount + taxAmount;
 
       const order = manager.getRepository(Order).create({
@@ -294,6 +324,15 @@ export class OrdersService {
 
       if (appliedCouponId) {
         await this.couponsService.recordUsage(manager, appliedCouponId, userId, order.id);
+      }
+      if (redeemedPoints > 0) {
+        await this.loyaltyService.recordRedemption(
+          manager,
+          userId,
+          order.id,
+          redeemedPoints,
+          loyaltyBalanceAfterRedeem,
+        );
       }
 
       this.notifyStatusChange(order);

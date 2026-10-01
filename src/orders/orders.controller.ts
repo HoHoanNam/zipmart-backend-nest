@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { UserRole } from '../auth/user.entity.js';
+import { Audit } from '../common/decorators/audit.decorator.js';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
@@ -63,6 +64,8 @@ export class OrdersController {
     return this.ordersService.markReceived(id, user);
   }
 
+  /** `@Audit('order')` proof-of-concept for B.3 — see the note on `ProductsController.create()`. */
+  @Audit('order')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch(':id/status')

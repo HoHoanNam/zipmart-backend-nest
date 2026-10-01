@@ -6,7 +6,7 @@ import { BehaviorEvent } from '../behaviors/behavior.entity.js';
 import { Order } from '../orders/order.entity.js';
 import { Product } from '../products/product.entity.js';
 import { DEFAULT_LOW_STOCK_THRESHOLD } from '../products/products.constants.js';
-import type { ReportRangeDto, TopProductsQueryDto } from './dto/report-range.dto.js';
+import type { ReportRangeDto, RevenueGroupBy, RevenueReportQueryDto, TopProductsQueryDto } from './dto/report-range.dto.js';
 
 /** Same convention as `soldCountSubquery()` in `products.service.ts` — an order only counts as realized revenue/sales once it's `paid` (or `completed`), not while still `pending`/`shipped`/`cancelled`. Kept identical on purpose so "revenue" here and "Đã bán N" on product cards never disagree. */
 const REVENUE_STATUSES = ['paid', 'completed'];
@@ -90,18 +90,20 @@ export class AnalyticsService {
     return { eventCounts, topViewed };
   }
 
-  async getRevenueReport(dto: ReportRangeDto) {
+  async getRevenueReport(dto: RevenueReportQueryDto) {
     const { start, end } = this.resolveRange(dto.from, dto.to);
+    const groupBy = dto.groupBy ?? 'day';
+    const groupExpr = this.revenueGroupExpr(groupBy);
 
     const rows = await this.orderRepo
       .createQueryBuilder('o')
-      .select("to_char(o.created_at, 'YYYY-MM-DD')", 'date')
+      .select(groupExpr, 'date')
       .addSelect('COUNT(*)', 'orderCount')
       .addSelect('SUM(o.total)', 'revenue')
       .where('o.status IN (:...statuses)', { statuses: REVENUE_STATUSES })
       .andWhere('o.created_at BETWEEN :start AND :end', { start, end })
-      .groupBy("to_char(o.created_at, 'YYYY-MM-DD')")
-      .orderBy("to_char(o.created_at, 'YYYY-MM-DD')", 'ASC')
+      .groupBy(groupExpr)
+      .orderBy(groupExpr, 'ASC')
       .getRawMany<{ date: string; orderCount: string; revenue: string | null }>();
 
     const days = rows.map((row) => ({
@@ -113,10 +115,28 @@ export class AnalyticsService {
     return {
       from: start.toISOString(),
       to: end.toISOString(),
+      groupBy,
       days,
       totalOrders: days.reduce((sum, day) => sum + day.orderCount, 0),
       totalRevenue: days.reduce((sum, day) => sum + day.revenue, 0),
     };
+  }
+
+  /**
+   * B.6 — chart granularity. `week` groups by the ISO week's Monday (via
+   * `date_trunc`) rather than `IYYY-IW` so the label is a plain calendar
+   * date the frontend chart can parse the same way as the `day`/`month`
+   * labels, instead of a special-cased "year-week number" string.
+   */
+  private revenueGroupExpr(groupBy: RevenueGroupBy): string {
+    switch (groupBy) {
+      case 'week':
+        return `to_char(date_trunc('week', o.created_at), 'YYYY-MM-DD')`;
+      case 'month':
+        return `to_char(o.created_at, 'YYYY-MM')`;
+      default:
+        return `to_char(o.created_at, 'YYYY-MM-DD')`;
+    }
   }
 
   async getTopProducts(dto: TopProductsQueryDto) {

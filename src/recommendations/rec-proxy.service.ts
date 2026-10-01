@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Redis } from 'ioredis';
 import { catchError, firstValueFrom, of } from 'rxjs';
 import { ProductsService } from '../products/products.service.js';
-import { REDIS_CLIENT } from './redis.provider.js';
+import { REDIS_CLIENT } from '../redis/redis.provider.js';
 
 export interface RecommendationItem {
   productId: string;

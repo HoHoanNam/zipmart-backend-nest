@@ -5,7 +5,7 @@ import { RolesGuard } from '../auth/roles.guard.js';
 import { UserRole } from '../auth/user.entity.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { AnalyticsService } from './analytics.service.js';
-import { ReportRangeDto, TopProductsQueryDto } from './dto/report-range.dto.js';
+import { ReportRangeDto, RevenueReportQueryDto, TopProductsQueryDto } from './dto/report-range.dto.js';
 
 @ApiTags('analytics')
 @ApiBearerAuth()
@@ -26,7 +26,7 @@ export class AnalyticsController {
   }
 
   @Get('revenue-report')
-  getRevenueReport(@Query() query: ReportRangeDto) {
+  getRevenueReport(@Query() query: RevenueReportQueryDto) {
     return this.analyticsService.getRevenueReport(query);
   }
 

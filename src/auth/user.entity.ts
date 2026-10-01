@@ -19,6 +19,10 @@ export class User {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.CUSTOMER })
   role!: UserRole;
 
+  /** Null for users created before the RBAC migration ran without a matching role name. */
+  @Column({ name: 'role_id', type: 'uuid', nullable: true })
+  roleId!: string | null;
+
   @Column({ name: 'phone_number', type: 'varchar', nullable: true })
   phoneNumber!: string | null;
 

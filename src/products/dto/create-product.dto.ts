@@ -18,6 +18,11 @@ export class CreateProductDto {
   @IsString()
   name!: string;
 
+  /** B.10 — bulk import match/update key. Optional on manual admin create too, for consistency. */
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
   @IsUUID()
   categoryId!: string;
 
@@ -30,6 +35,15 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  /** A.10 — English translations, optional (nullable in the DB too). */
+  @IsOptional()
+  @IsString()
+  nameEn?: string;
+
+  @IsOptional()
+  @IsString()
+  descriptionEn?: string;
 
   @IsOptional()
   @IsArray()

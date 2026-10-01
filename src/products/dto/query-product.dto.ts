@@ -1,9 +1,9 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
-export type ProductSort = 'price_asc' | 'price_desc' | 'newest' | 'bestselling';
+export type ProductSort = 'price_asc' | 'price_desc' | 'newest' | 'bestselling' | 'relevance';
 
-const SORT_OPTIONS: ProductSort[] = ['price_asc', 'price_desc', 'newest', 'bestselling'];
+const SORT_OPTIONS: ProductSort[] = ['price_asc', 'price_desc', 'newest', 'bestselling', 'relevance'];
 
 export class QueryProductDto {
   @IsOptional()

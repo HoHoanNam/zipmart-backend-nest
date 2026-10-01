@@ -7,17 +7,30 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AddressesModule } from './addresses/addresses.module.js';
 import { AnalyticsModule } from './analytics/analytics.module.js';
 import { AppController } from './app.controller.js';
+import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BannersModule } from './banners/banners.module.js';
 import { BehaviorsModule } from './behaviors/behaviors.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
+import { CmsModule } from './cms/cms.module.js';
 import { CouponsModule } from './coupons/coupons.module.js';
+import { LoyaltyModule } from './loyalty/loyalty.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { OrdersModule } from './orders/orders.module.js';
+import { PermissionsModule } from './auth/permissions.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
 import { ProductsModule } from './products/products.module.js';
+import { ProductsImportModule } from './products-import/products-import.module.js';
+import { RealtimeModule } from './realtime/realtime.module.js';
 import { RecommendationsModule } from './recommendations/recommendations.module.js';
+import { RedisModule } from './redis/redis.module.js';
+import { ScheduledReportsModule } from './reports/scheduled-reports.module.js';
+import { ReturnsModule } from './returns/returns.module.js';
+import { SettingsModule } from './settings/settings.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
+import { SupportModule } from './support/support.module.js';
+import { SuppliersModule } from './suppliers/suppliers.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
 import { WishlistModule } from './wishlist/wishlist.module.js';
@@ -42,7 +55,9 @@ import { WishlistModule } from './wishlist/wishlist.module.js';
       throttlers: [{ ttl: 60000, limit: 100 }],
     }),
     ScheduleModule.forRoot(),
+    RedisModule,
     AuthModule,
+    PermissionsModule,
     CategoriesModule,
     CouponsModule,
     ProductsModule,
@@ -58,6 +73,17 @@ import { WishlistModule } from './wishlist/wishlist.module.js';
     BannersModule,
     AddressesModule,
     NotificationsModule,
+    PaymentsModule,
+    ReturnsModule,
+    RealtimeModule,
+    SupportModule,
+    LoyaltyModule,
+    AuditModule,
+    SettingsModule,
+    SuppliersModule,
+    CmsModule,
+    ProductsImportModule,
+    ScheduledReportsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

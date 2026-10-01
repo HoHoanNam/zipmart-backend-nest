@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { UserRole } from '../auth/user.entity.js';
+import { Audit } from '../common/decorators/audit.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { AdjustStockDto } from './dto/adjust-stock.dto.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
@@ -79,6 +80,8 @@ export class ProductsController {
     return this.productsService.updateLowStockThreshold(id, dto);
   }
 
+  /** `@Audit('product')` proof-of-concept for B.3 — see AuditModule/AuditInterceptor. Not retrofitted onto every mutation handler in this controller yet (see the task's final report for which ones are tagged and which aren't). */
+  @Audit('product')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)

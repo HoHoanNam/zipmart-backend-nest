@@ -85,6 +85,18 @@ export class ProductsService {
       idsQb.orderBy('product.price', 'ASC').addOrderBy('product.id', 'ASC');
     } else if (query.sort === 'price_desc') {
       idsQb.orderBy('product.price', 'DESC').addOrderBy('product.id', 'ASC');
+    } else if (query.sort === 'relevance' && query.search) {
+      // `websearch_to_tsquery`/`:search` param already bound by the
+      // `search` filter above (`idsQb` is a clone of `filtered`, which
+      // carries that param along) — reused here, not rebuilt, so the rank
+      // always matches exactly what the WHERE clause matched against.
+      idsQb
+        .addSelect(
+          `ts_rank("product"."search_vector", websearch_to_tsquery('simple', :search))`,
+          'searchRank',
+        )
+        .orderBy('"searchRank"', 'DESC')
+        .addOrderBy('product.id', 'ASC');
     } else {
       idsQb.orderBy('product.createdAt', 'DESC').addOrderBy('product.id', 'ASC');
     }

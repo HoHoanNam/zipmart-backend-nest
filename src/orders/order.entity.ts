@@ -11,6 +11,23 @@ export enum OrderStatus {
 export enum PaymentMethod {
   COD = 'cod',
   CREDIT = 'credit',
+  VNPAY = 'vnpay',
+  MOMO = 'momo',
+}
+
+/**
+ * Deliberately separate from `OrderStatus` — `OrderStatus` tracks the
+ * fulfillment lifecycle (pending → paid → shipped → completed/cancelled),
+ * while this tracks the money: whether the order's total has actually
+ * settled through a payment gateway. A COD order can be `completed` while
+ * still `unpaid` here (cash collected out-of-band), and a `paid` order can
+ * later become `refunded` via the returns flow without changing its
+ * fulfillment status.
+ */
+export enum OrderPaymentStatus {
+  UNPAID = 'unpaid',
+  PAID = 'paid',
+  REFUNDED = 'refunded',
 }
 
 @Entity('orders')
@@ -61,6 +78,14 @@ export class Order {
 
   @Column({ type: 'numeric', precision: 10, scale: 2 })
   total!: string;
+
+  @Column({
+    name: 'payment_status',
+    type: 'enum',
+    enum: OrderPaymentStatus,
+    default: OrderPaymentStatus.UNPAID,
+  })
+  paymentStatus!: OrderPaymentStatus;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

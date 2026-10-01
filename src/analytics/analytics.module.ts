@@ -12,5 +12,9 @@ import { AnalyticsService } from './analytics.service.js';
   imports: [TypeOrmModule.forFeature([Order, Product, User, BehaviorEvent]), AuthModule],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],
+  // Exported for B.10's ScheduledReportsModule, which reuses
+  // `getRevenueReport()`/`getTopProducts()`/`exportOrdersCsv()` to build
+  // the emailed report body instead of duplicating that querying logic.
+  exports: [AnalyticsService],
 })
 export class AnalyticsModule {}

@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
 import { PaymentMethod } from '../order.entity.js';
 
 export class CreateOrderDto {
@@ -32,4 +32,10 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  /** Loyalty points to redeem against this order's total — see `LoyaltyService.redeemInTransaction()`. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  redeemPoints?: number;
 }
